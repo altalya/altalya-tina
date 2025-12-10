@@ -59,9 +59,21 @@ export class PostgresLevel<
 
         const poolConfig: PoolConfig = options.poolConfig || {
             connectionString: options.connectionString,
+            // Optimized for Next.js builds
+            max: 10, // Maximum pool size
+            idleTimeoutMillis: 30000, // Close idle connections after 30s
+            connectionTimeoutMillis: 10000, // Timeout for new connections
         };
 
         this.pool = new Pool(poolConfig);
+
+        // Handle pool errors gracefully
+        this.pool.on('error', (err) => {
+            if (this.debug) {
+                console.error('PostgresLevel: Unexpected pool error:', err);
+            }
+        });
+
         this.namespace = options.namespace || 'level';
         this.debug = options.debug || false;
     }
@@ -121,12 +133,10 @@ export class PostgresLevel<
             console.log('PostgresLevel#_close');
         }
 
-        try {
-            await this.pool.end();
-            this.nextTick(callback);
-        } catch (e) {
-            this.nextTick(callback, e as Error);
-        }
+        // Don't actually close the pool during Next.js builds
+        // The pool will be cleaned up when the process exits
+        // This prevents "Connection to leader lost" errors during static generation
+        this.nextTick(callback);
     }
 
     async _get(
