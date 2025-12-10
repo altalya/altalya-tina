@@ -1,5 +1,5 @@
 import { createDatabase, createLocalDatabase } from "@tinacms/datalayer";
-import { RedisLevel } from "upstash-redis-level";
+import { PostgresLevel } from "../lib/postgres-level";
 import { GitHubProvider } from "tinacms-gitprovider-github";
 
 // Manage this flag in your CI/CD pipeline and make sure it is set to false in production
@@ -23,19 +23,16 @@ if (!branch) {
 export default isLocal
   ? createLocalDatabase()
   : createDatabase({
-      gitProvider: new GitHubProvider({
-        branch,
-        owner,
-        repo,
-        token,
-      }),
-      databaseAdapter: new RedisLevel<string, Record<string, any>>({
-        redis: {
-          url:
-            (process.env.KV_REST_API_URL as string) || "http://localhost:8079",
-          token: (process.env.KV_REST_API_TOKEN as string) || "example_token",
-        },
-        debug: process.env.DEBUG === "true" || false,
-      }),
-      namespace: branch,
-    });
+    gitProvider: new GitHubProvider({
+      branch,
+      owner,
+      repo,
+      token,
+    }),
+    databaseAdapter: new PostgresLevel<string, Record<string, any>>({
+      connectionString: process.env.POSTGRES_URL as string,
+      debug: process.env.DEBUG === "true" || false,
+    }),
+    namespace: branch,
+  });
+
