@@ -10,15 +10,15 @@ const handler = TinaNodeBackend({
   authProvider: isLocal
     ? LocalBackendAuthProvider()
     : AuthJsBackendAuthProvider({
-        authOptions: TinaAuthJSOptions({
-          databaseClient: databaseClient,
-          secret: process.env.NEXTAUTH_SECRET!,
-        }),
+      authOptions: TinaAuthJSOptions({
+        databaseClient: databaseClient,
+        secret: process.env.NEXTAUTH_SECRET!,
       }),
+    }),
   databaseClient,
 });
 
-export default (req, res) => {
+export default function tinaHandler(req, res) {
   // Modify the request here if you need to
   return handler(req, res);
-};
+}

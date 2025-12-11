@@ -3,8 +3,14 @@
  * Implements range queries with lexicographic ordering
  */
 import { AbstractIterator, AbstractLevel } from 'abstract-level';
-import { NextCallback } from 'abstract-level/types/abstract-iterator';
 import { Pool } from 'pg';
+
+// Define the callback type for the _next method
+type NextCallback<K, V> = (
+    error: Error | undefined,
+    key?: K,
+    value?: V
+) => void;
 
 const DEFAULT_LIMIT = 50;
 
@@ -24,9 +30,10 @@ export interface IteratorOptions<KDefault> {
 }
 
 // Interface for the database instance to avoid circular dependency
-export interface PostgresLevelLike<KDefault, VDefault> extends AbstractLevel<string, KDefault, VDefault> {
+export interface PostgresLevelLike<KDefault, VDefault> extends AbstractLevel<Buffer | Uint8Array | string, KDefault, VDefault> {
     pool: Pool;
     namespace: string;
+    nextTick<T extends any[]>(callback: (...args: T) => void, ...args: T): void;
 }
 
 export class PostgresIterator<KDefault, VDefault> extends AbstractIterator<
@@ -63,7 +70,7 @@ export class PostgresIterator<KDefault, VDefault> extends AbstractIterator<
 
     async _next(callback: NextCallback<KDefault, VDefault>) {
         if (this.finished) {
-            return this.db.nextTick(callback, null);
+            return this.db.nextTick(callback, undefined);
         }
 
         if (this.results.length === 0) {
@@ -121,7 +128,7 @@ export class PostgresIterator<KDefault, VDefault> extends AbstractIterator<
 
                 if (!result.rows || result.rows.length === 0) {
                     this.finished = true;
-                    return this.db.nextTick(callback, null);
+                    return this.db.nextTick(callback, undefined);
                 }
 
                 for (const row of result.rows) {
@@ -136,7 +143,7 @@ export class PostgresIterator<KDefault, VDefault> extends AbstractIterator<
             } catch (e) {
                 console.error('PostgresIterator error:', e);
                 this.finished = true;
-                return this.db.nextTick(callback, null);
+                return this.db.nextTick(callback, undefined);
             }
         }
 
@@ -146,9 +153,9 @@ export class PostgresIterator<KDefault, VDefault> extends AbstractIterator<
         }
 
         if (result) {
-            return this.db.nextTick(callback, null, result[0], result[1]);
+            return this.db.nextTick(callback, undefined, result[0], result[1]);
         }
 
-        return this.db.nextTick(callback, null);
+        return this.db.nextTick(callback, undefined);
     }
 }

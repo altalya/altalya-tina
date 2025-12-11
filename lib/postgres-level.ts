@@ -47,10 +47,12 @@ interface ClearOptions<KDefault> {
 
 export class PostgresLevel<
     KDefault = string,
-    VDefault = string
-> extends AbstractLevel<string, KDefault, VDefault> {
+    VDefault = Record<string, any>
+> extends AbstractLevel<Buffer | Uint8Array | string, KDefault, VDefault> {
     public readonly pool: Pool;
     public readonly namespace: string;
+    // @ts-ignore - Override supports type to match TinaCMS requirements
+    public readonly supports: any;
     private readonly debug: boolean;
     private initialized: boolean = false;
 
@@ -76,10 +78,45 @@ export class PostgresLevel<
 
         this.namespace = options.namespace || 'level';
         this.debug = options.debug || false;
+
+        // Patch supports manifest to match TinaCMS requirements
+        Object.assign(this.supports, {
+            clear: true,
+            getMany: true,
+            keyIterator: true,
+            valueIterator: true,
+            additionalMethods: {},
+        });
+    }
+
+    get(key: KDefault): Promise<VDefault>;
+    get(key: KDefault, options: any): Promise<VDefault>;
+    get(key: KDefault, callback: any): void;
+    get(key: KDefault, options: any, callback: any): void;
+    get(key: KDefault, options?: any, callback?: any): Promise<VDefault> | void {
+        // @ts-ignore - Handle argument mismatch and return type casting
+        return super.get(key, options, callback) as Promise<VDefault>;
+    }
+
+    getMany(keys: KDefault[]): Promise<VDefault[]>;
+    getMany(keys: KDefault[], options: any): Promise<VDefault[]>;
+    getMany(keys: KDefault[], callback: any): void;
+    getMany(keys: KDefault[], options: any, callback: any): void;
+    getMany(keys: KDefault[], options?: any, callback?: any): Promise<VDefault[]> | void {
+        // @ts-ignore - Handle argument mismatch and return type casting
+        return super.getMany(keys, options, callback) as Promise<VDefault[]>;
     }
 
     get type() {
         return 'postgres';
+    }
+
+    // Helper method for callback-based API compatibility
+    nextTick<T extends any[]>(
+        callback: (...args: T) => void,
+        ...args: T
+    ): void {
+        process.nextTick(() => callback(...args));
     }
 
     private async ensureTable(): Promise<void> {
@@ -158,7 +195,7 @@ export class PostgresLevel<
                 if (this.debug) {
                     console.log('PostgresLevel#_get found:', result.rows[0].value);
                 }
-                return this.nextTick(callback, null, result.rows[0].value);
+                return this.nextTick(callback, undefined, result.rows[0].value);
             } else {
                 return this.nextTick(
                     callback,
@@ -183,7 +220,7 @@ export class PostgresLevel<
 
         try {
             if (keys.length === 0) {
-                return this.nextTick(callback, null, []);
+                return this.nextTick(callback, undefined, []);
             }
 
             const placeholders = keys.map((_, i) => `$${i + 2}`).join(', ');
@@ -198,7 +235,7 @@ export class PostgresLevel<
             }
 
             const values = keys.map((key) => valueMap.get(key));
-            return this.nextTick(callback, null, values);
+            return this.nextTick(callback, undefined, values);
         } catch (e) {
             return this.nextTick(callback, e as Error);
         }
